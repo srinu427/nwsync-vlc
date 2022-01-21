@@ -257,7 +257,8 @@ class Player(QtWidgets.QMainWindow):
 
         dialog_txt = "Choose Media File"
         filename = QtWidgets.QFileDialog.getOpenFileName(self, dialog_txt, os.path.expanduser('~'))
-        if not filename or not os.path.isfile(filename):
+        print(filename)
+        if not filename or (filename is not None and not os.path.isfile(filename[0])):
             return
 
         # getOpenFileName returns a tuple, so use only the actual file name
