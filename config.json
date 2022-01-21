@@ -1,5 +1,6 @@
 {
 	"url": "http://127.0.0.1:4270/poll_status",
 	"media_name": "ex_media_name",
-	"uname": "srinu427"
+	"uname": "srinu427",
+	"nwpoll_interval_ms": 1000
 }

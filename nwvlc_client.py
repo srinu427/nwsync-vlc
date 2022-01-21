@@ -101,6 +101,11 @@ class Player(QtWidgets.QMainWindow):
 
     def __init__(self, master=None, url="http://127.0.0.1:4270/poll_status"):
         QtWidgets.QMainWindow.__init__(self, master)
+        self.url = url
+        self.media_name = None
+        self.uname = None
+        self.nwpoll_interval_ms = 1000
+        
         if (os.path.isfile("config.json")):
             with open('config.json') as fr:
                 cjdata = json.load(fr)
@@ -110,10 +115,9 @@ class Player(QtWidgets.QMainWindow):
                 self.media_name = cjdata['media_name']
             if 'uname' in cjdata:
                 self.uname = cjdata['uname']
-        else:
-            self.url = url
-            self.media_name = None
-            self.uname = None
+            if 'nwpoll_interval_ms' in cjdata:
+                self.nwpoll_interval_ms = cjdata['nwpoll_interval_ms']
+            
         self.action = None
         self.should_stop = False
         
@@ -140,6 +144,32 @@ class Player(QtWidgets.QMainWindow):
         """
         self.widget = QtWidgets.QWidget(self)
         self.setCentralWidget(self.widget)
+        
+        if self.media_name is None or self.uname is None:
+            self.etextview = QtWidgets.QLabel()
+            # self.etextview.setReadOnly(True)
+            self.etextview.setAlignment(QtCore.Qt.AlignCenter)
+            self.etextview.setText("The fields media_name or uname not found in config.json\n" + \
+                                   "please create one and try running. sample config.json\n\n" + \
+                                   '{"url": "http://127.0.0.1:4270/poll_status",\n"media_name": "ex_media_name"\n,"uname": "user_name-123"\n,"nwpoll_interval_ms": 1000}')
+            self.vboxlayout = QtWidgets.QVBoxLayout()
+            self.vboxlayout.addWidget(self.etextview)
+            self.widget.setLayout(self.vboxlayout)
+            return
+        conn_valid = False
+        try:
+            conn_valid = requests.post(self.url, data={}).status_code == 200
+        except:
+            conn_valid = False
+        if not conn_valid:
+            self.etextview = QtWidgets.QLabel()
+            # self.etextview.setReadOnly(True)
+            self.etextview.setAlignment(QtCore.Qt.AlignCenter)
+            self.etextview.setText("Cannot reach the URL " + self.url)
+            self.vboxlayout = QtWidgets.QVBoxLayout()
+            self.vboxlayout.addWidget(self.etextview)
+            self.widget.setLayout(self.vboxlayout)
+            return
 
         # In this widget, the video will be drawn
         if platform.system() == "Darwin": # for MacOS
@@ -291,7 +321,7 @@ class Player(QtWidgets.QMainWindow):
         self.stopbutton.setEnabled(False)
         self.positionslider.setEnabled(False)
         
-        self.nthread = threading.Thread(target=self.schedule_pings, kwargs={'interval_ms': 1000}, daemon=True)
+        self.nthread = threading.Thread(target=self.schedule_pings, kwargs={'interval_ms': self.nwpoll_interval_ms}, daemon=True)
         self.nthread.start()
 
     def set_volume(self, volume):
