@@ -213,7 +213,6 @@ class Player(QtWidgets.QMainWindow):
             self.stopbutton.show()
             self.playbutton.show()
         else:
-            print('here')
             self.menuBar().hide()
             self.positionslider.hide()
             self.volumeslider.hide()
@@ -324,6 +323,7 @@ def main():
     """
     app = QtWidgets.QApplication(sys.argv)
     player = Player()
+    apply_stylesheet(app, theme='dark_teal.xml')
     player.show()
     #player.videoframe.show()
     player.resize(960, 600)
