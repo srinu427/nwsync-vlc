@@ -4,6 +4,8 @@ import sys
 import json
 
 from PyQt5 import QtWidgets, QtGui, QtCore
+#from PySide6 import QtWidgets, QtGui, QtCore
+from qt_material import apply_stylesheet
 import vlc
 import requests
 import threading
@@ -127,6 +129,8 @@ class Player(QtWidgets.QMainWindow):
 
         # Create an empty vlc media player
         self.mediaplayer = self.instance.media_player_new()
+        self.mediaplayer.video_set_mouse_input(False)
+        self.mediaplayer.video_set_key_input(False)
 
         self.create_ui()
         self.is_paused = False
@@ -147,6 +151,7 @@ class Player(QtWidgets.QMainWindow):
         self.palette.setColor(QtGui.QPalette.Window, QtGui.QColor(0, 0, 0))
         self.videoframe.setPalette(self.palette)
         self.videoframe.setAutoFillBackground(True)
+        self.videoframe.mouseDoubleClickEvent = self.toggle_fscreen
 
         self.positionslider = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
         self.positionslider.setToolTip("Position")
@@ -163,21 +168,6 @@ class Player(QtWidgets.QMainWindow):
         self.hbuttonbox.addWidget(self.stopbutton)
         self.stopbutton.clicked.connect(self.stop)
         
-        #self.hnamebox = QtWidgets.QHBoxLayout()
-        #self.mname_box = QtWidgets.QLineEdit("media name")
-        #self.hnamebox.addWidget(self.mname_box)
-        
-        #self.mnamebutton = QtWidgets.QPushButton("udpate mname")
-        #self.hnamebox.addWidget(self.mnamebutton)
-        #self.mnamebutton.clicked.connect(self.set_mname)
-        
-        #self.uname_box = QtWidgets.QLineEdit("username")
-        #self.hnamebox.addWidget(self.uname_box)
-        
-        #self.unamebutton = QtWidgets.QPushButton("udpate uname")
-        #self.hnamebox.addWidget(self.unamebutton)
-        #self.unamebutton.clicked.connect(self.set_uname)
-
         self.hbuttonbox.addStretch(1)
         #self.hnamebox.addStretch(1)
         self.volumeslider = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
@@ -213,6 +203,23 @@ class Player(QtWidgets.QMainWindow):
         self.timer.setInterval(100)
         self.timer.timeout.connect(self.update_ui)
         self.timer.start()
+
+    def toggle_fscreen(self, args):
+        if self.isFullScreen():
+            self.showNormal()
+            self.menuBar().show()
+            self.positionslider.show()
+            self.volumeslider.show()
+            self.stopbutton.show()
+            self.playbutton.show()
+        else:
+            print('here')
+            self.menuBar().hide()
+            self.positionslider.hide()
+            self.volumeslider.hide()
+            self.stopbutton.hide()
+            self.playbutton.hide()
+            self.showFullScreen()
 
     def play_pause(self):
         """Toggle play/pause status
@@ -318,6 +325,7 @@ def main():
     app = QtWidgets.QApplication(sys.argv)
     player = Player()
     player.show()
+    #player.videoframe.show()
     player.resize(960, 600)
     sys.exit(app.exec_())
 
