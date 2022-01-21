@@ -16,7 +16,18 @@ def test_list_eq(l1, l2):
 def make_act_resp(action, current_ts, synced):
     return jsonify({'action': action, 'current_ts': current_ts, 'synced': synced})
 
-@app.route("/poll_status", methods=["GET","POST"])
+
+@app.route("/clear_mname_data", methods=["POST"])
+def force_assume_sync():
+    data = request.json
+    if data is not None:
+        if 'media_name' in data:
+            if data['media_name'] in media_store:
+                del data['media_name']
+                return jsonify({"result": "removed"})
+            return jsonify({"result": "cant find specified media_name"})
+
+@app.route("/poll_status", methods=["POST"])
 def handle_nwvlc_req():
     data = request.json
 

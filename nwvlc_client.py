@@ -1,6 +1,7 @@
 import platform
 import os
 import sys
+import json
 
 from PyQt5 import QtWidgets, QtGui, QtCore
 import vlc
@@ -25,7 +26,7 @@ class Player(QtWidgets.QMainWindow):
     """
     
     def send_status(self):
-        if self.media_name is not None:
+        if self.media_name is not None and self.uname is not None:
             with self.nthread_lock:
                 try:
                     res = requests.post(self.url,
@@ -98,9 +99,19 @@ class Player(QtWidgets.QMainWindow):
 
     def __init__(self, master=None, url="http://127.0.0.1:4270/poll_status"):
         QtWidgets.QMainWindow.__init__(self, master)
-        self.url = url
-        self.media_name = None
-        self.username = None
+        if (os.path.isfile("config.json")):
+            with open('config.json') as fr:
+                cjdata = json.load(fr)
+            if 'url' in cjdata:
+                self.url = cjdata['url']
+            if 'media_name' in cjdata:
+                self.media_name = cjdata['media_name']
+            if 'uname' in cjdata:
+                self.uname = cjdata['uname']
+        else:
+            self.url = url
+            self.media_name = None
+            self.uname = None
         self.action = None
         self.should_stop = False
         
@@ -152,23 +163,23 @@ class Player(QtWidgets.QMainWindow):
         self.hbuttonbox.addWidget(self.stopbutton)
         self.stopbutton.clicked.connect(self.stop)
         
-        self.hnamebox = QtWidgets.QHBoxLayout()
-        self.mname_box = QtWidgets.QLineEdit("media name")
-        self.hnamebox.addWidget(self.mname_box)
+        #self.hnamebox = QtWidgets.QHBoxLayout()
+        #self.mname_box = QtWidgets.QLineEdit("media name")
+        #self.hnamebox.addWidget(self.mname_box)
         
-        self.mnamebutton = QtWidgets.QPushButton("udpate mname")
-        self.hnamebox.addWidget(self.mnamebutton)
-        self.mnamebutton.clicked.connect(self.set_mname)
+        #self.mnamebutton = QtWidgets.QPushButton("udpate mname")
+        #self.hnamebox.addWidget(self.mnamebutton)
+        #self.mnamebutton.clicked.connect(self.set_mname)
         
-        self.uname_box = QtWidgets.QLineEdit("username")
-        self.hnamebox.addWidget(self.uname_box)
+        #self.uname_box = QtWidgets.QLineEdit("username")
+        #self.hnamebox.addWidget(self.uname_box)
         
-        self.unamebutton = QtWidgets.QPushButton("udpate uname")
-        self.hnamebox.addWidget(self.unamebutton)
-        self.unamebutton.clicked.connect(self.set_uname)
+        #self.unamebutton = QtWidgets.QPushButton("udpate uname")
+        #self.hnamebox.addWidget(self.unamebutton)
+        #self.unamebutton.clicked.connect(self.set_uname)
 
         self.hbuttonbox.addStretch(1)
-        self.hnamebox.addStretch(1)
+        #self.hnamebox.addStretch(1)
         self.volumeslider = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
         self.volumeslider.setMaximum(100)
         self.volumeslider.setValue(self.mediaplayer.audio_get_volume())
@@ -180,7 +191,7 @@ class Player(QtWidgets.QMainWindow):
         self.vboxlayout.addWidget(self.videoframe)
         self.vboxlayout.addWidget(self.positionslider)
         self.vboxlayout.addLayout(self.hbuttonbox)
-        self.vboxlayout.addLayout(self.hnamebox)
+        #self.vboxlayout.addLayout(self.hnamebox)
 
         self.widget.setLayout(self.vboxlayout)
 
@@ -307,7 +318,7 @@ def main():
     app = QtWidgets.QApplication(sys.argv)
     player = Player()
     player.show()
-    player.resize(640, 480)
+    player.resize(960, 600)
     sys.exit(app.exec_())
 
 if __name__ == "__main__":
