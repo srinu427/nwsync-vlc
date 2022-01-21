@@ -178,6 +178,7 @@ class Player(QtWidgets.QMainWindow):
         self.volumeslider.valueChanged.connect(self.set_volume)
 
         self.vboxlayout = QtWidgets.QVBoxLayout()
+        self.vboxlayout.setContentsMargins(5, 5, 5, 5)
         self.vboxlayout.addWidget(self.videoframe)
         self.vboxlayout.addWidget(self.positionslider)
         self.vboxlayout.addLayout(self.hbuttonbox)
@@ -206,6 +207,7 @@ class Player(QtWidgets.QMainWindow):
 
     def toggle_fscreen(self, args):
         if self.isFullScreen():
+            self.vboxlayout.setContentsMargins(5, 5, 5, 5)
             self.showNormal()
             self.menuBar().show()
             self.positionslider.show()
@@ -218,6 +220,7 @@ class Player(QtWidgets.QMainWindow):
             self.volumeslider.hide()
             self.stopbutton.hide()
             self.playbutton.hide()
+            self.vboxlayout.setContentsMargins(0, 0, 0, 0)
             self.showFullScreen()
 
     def play_pause(self):
@@ -254,7 +257,7 @@ class Player(QtWidgets.QMainWindow):
 
         dialog_txt = "Choose Media File"
         filename = QtWidgets.QFileDialog.getOpenFileName(self, dialog_txt, os.path.expanduser('~'))
-        if not filename:
+        if not filename or not os.path.isfile(filename):
             return
 
         # getOpenFileName returns a tuple, so use only the actual file name
