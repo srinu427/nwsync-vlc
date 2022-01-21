@@ -6,39 +6,48 @@ necc_newsync_fields = []
 
 media_store = {}
 
+def test_list_eq(l1, l2):
+    l1.sort()
+    l2.sort()
+    
+    return l1 == l2
+
+
+def make_act_resp(action, current_ts, synced):
+    return jsonify({'action': action, 'current_ts': current_ts, 'synced': synced})
 
 @app.route("/poll_status", methods=["GET","POST"])
 def handle_nwvlc_req():
-    #print(request.data)
     data = request.json
-    #print(data)
-    #return jsonify({})
+
     if data is not None:
         if 'media_name' in data:
+            mname = data['media_name']
             if data['media_name'] in media_store:
-                if data['user'] not in media_store[data['media_name']]['users']:
-                    media_store[data['media_name']]['users'] += [data['user']]
-                if data['user'] not in media_store[data['media_name']]['acted_users']:
-                    print(media_store[data['media_name']])
-                    media_store[data['media_name']]['acted_users'] += [data['user']]
-                    return jsonify(media_store[data['media_name']])
-                if data["action"] == "play" and media_store[data['media_name']]['acted_users'] != media_store[data['media_name']]['users']:
-                    media_store[data['media_name']]['last_action'] = data['action']
-                    media_store[data['media_name']]['acted_users'] = [data['user']]
-                elif data['action'] == 'pause' and media_store[data['media_name']]['acted_users'] != media_store[data['media_name']]['users']:
-                    media_store[data['media_name']]['last_action'] = data['action']
-                    media_store[data['media_name']]['current_ts'] = data['current_ts']
-                    media_store[data['media_name']]['acted_users'] = [data['user']]
-                print(media_store[data['media_name']])
-                if media_store[data['media_name']]['acted_users'] == media_store[data['media_name']]['users']:
-                    media_store[data['media_name']]['last_action'] = 'none'
-                    media_store[data['media_name']]['acted_users'] = []
-                return jsonify({'current_ts': 0, 'current_status': 'play', 'last_action': 'none', "users": [data['user']], 'acted_users': [data['user']]})
+                # New User
+                if data['user'] not in media_store[mname]['users']:
+                    media_store[mname]['users'] += [data['user']]
+                # User still to sync
+                if data['user'] not in media_store[mname]['acted_users']:
+                    media_store[mname]['acted_users'] += [data['user']]
+                    return make_act_resp(media_store[mname]['action'], media_store[mname]['current_ts'], test_list_eq(media_store[mname]['users'], media_store[mname]['acted_users']))
+                # All Users synced
+                if test_list_eq(media_store[mname]['acted_users'], media_store[mname]['users']):
+                    if data["action"] == "play" or data["action"] == "pause" or data["action"] == "seek":
+                        media_store[mname]['action'] = data['action']
+                        media_store[mname]['current_ts'] = data['current_ts']
+                        media_store[mname]['acted_users'] = [data['user']]
+                    return make_act_resp('none', media_store[mname]['current_ts'], test_list_eq(media_store[mname]['users'], media_store[mname]['acted_users']))
+                else:
+                    print(media_store[mname]['acted_users'])
+                    print(media_store[mname]['users'])
+                    if data["action"] == "play" or data["action"] == "pause" or data["action"] == "seek":
+                        return make_act_resp(media_store[mname]['action'], media_store[mname]['current_ts'], False)
+                    return make_act_resp('none', media_store[mname]['current_ts'], False)
             else:
-                media_store[data['media_name']] = {'current_ts': 0, 'current_status': 'play', 'last_action': 'play', "users": [data['user']], 'acted_users': [data['user']]}
-                print({'current_status': 'you_the_first'})
-                return jsonify({'current_status': 'you_the_first'})
-                    
+                media_store[mname] = {'current_ts': 0, 'action': 'play', "users": [data['user']], 'acted_users': [data['user']]}
+                return make_act_resp('none', media_store[mname]['current_ts'], True)
+                
     return jsonify({})
 
 

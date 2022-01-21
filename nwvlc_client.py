@@ -15,7 +15,7 @@ class NWSyncer:
         self.media_name = None
         self.current_media_ts = None
         self.current_media_status = None
-        self.last_action = None
+        self.action = None
         self.should_stop = False
 
    
@@ -26,30 +26,20 @@ class Player(QtWidgets.QMainWindow):
     
     def send_status(self):
         if self.media_name is not None:
-            #print({'media_name': self.media_name, 'current_ts': self.current_media_ts, 'current_status': self.current_media_status, 'action': self.last_action})
-            try:
-                res = requests.post(self.url,
-                                    json={'media_name': self.media_name,
-                                          'current_ts': self.current_media_ts,
-                                          'current_status': self.current_media_status,
-                                          'action': self.last_action,
-                                          'user': self.uname})
-                sdata = res.json()
-                if 'last_action' in sdata:
-                    if sdata['last_action'] == 'play':
-                        if not self.mediaplayer.is_playing():
-                            self.positionslider.setValue(sdata['current_ts'])
-                            self.set_position()
-                            self.play_pause()
-                    if sdata['last_action'] == 'pause':
-                        if self.mediaplayer.is_playing():
-                            self.play_pause()
-                            self.positionslider.setValue(sdata['current_ts'])
-                            self.set_position()
-            except:
-                print("Error sending status")
-        if self.last_action is not None:
-            self.last_action = None
+            with self.nthread_lock:
+                try:
+                    res = requests.post(self.url,
+                                        json={'media_name': self.media_name,
+                                              'current_ts': self.positionslider.value(),
+                                              'action': self.action,
+                                              'user': self.uname})
+                except:
+                    print("Error sending status")
+                print({'media_name': self.media_name,'current_ts': self.positionslider.value(),'action': self.action,'user': self.uname})
+                print(res.json())
+                self.action_queue += [res.json()]
+        if self.action is not None:
+            self.action = None
             
     def schedule_pings(self, interval_ms=200):
         clock_start = datetime.now()
@@ -63,31 +53,60 @@ class Player(QtWidgets.QMainWindow):
             pause.until(wait_until)
             self.send_status()
     
-    def update_status(self, name=None, ts=None, action=None):
+    def update_status(self, name=None, action=None):
         if name is not None:
             self.media_name = name
-        if ts is not None:
-            self.current_media_ts = ts
         if action is not None:
-            self.last_action = action
+            self.action = action
 
     def set_mname(self):
         self.media_name = self.mname_box.text()
     
     def set_uname(self):
         self.uname = self.uname_box.text()
+        
+    def execute_action(self, sdata):
+        if 'synced' in sdata:
+            if sdata['synced']:
+                self.playbutton.setEnabled(True)
+                self.stopbutton.setEnabled(True)
+                self.positionslider.setEnabled(True)
+            else:
+                self.playbutton.setEnabled(False)
+                self.stopbutton.setEnabled(False)
+                self.positionslider.setEnabled(False)
+
+        if 'action' in sdata:
+            if sdata['action'] == 'play':
+                print("signal recieved to play at: " + str(sdata['current_ts']))
+                self.positionslider.setValue(sdata['current_ts'])
+                self.set_position()
+                if not self.mediaplayer.is_playing():   
+                    self.play_pause()
+                    self.action = None
+            if sdata['action'] == 'pause':
+                print("signal recieved to pause at: " + str(sdata['current_ts']))
+                if self.mediaplayer.is_playing():
+                    self.play_pause()    
+                    self.action = None
+                self.positionslider.setValue(sdata['current_ts'])
+                self.set_position()
+            if sdata['action'] == 'seek':
+                print("signal recieved to seek at: " + str(sdata['current_ts']))
+                self.positionslider.setValue(sdata['current_ts'])
+                self.set_position()
 
     def __init__(self, master=None, url="http://127.0.0.1:4270/poll_status"):
         QtWidgets.QMainWindow.__init__(self, master)
         self.url = url
         self.media_name = None
         self.username = None
-        self.current_media_ts = None
-        self.current_media_status = None
-        self.last_action = None
+        self.action = None
         self.should_stop = False
         
         self.nthread = None
+        self.nthread_lock = threading.Lock()
+        self.action_queue = []
         self.setWindowTitle("Media Player")
 
         # Create a basic vlc instance
@@ -182,6 +201,7 @@ class Player(QtWidgets.QMainWindow):
         self.timer = QtCore.QTimer(self)
         self.timer.setInterval(100)
         self.timer.timeout.connect(self.update_ui)
+        self.timer.start()
 
     def play_pause(self):
         """Toggle play/pause status
@@ -190,9 +210,8 @@ class Player(QtWidgets.QMainWindow):
             self.mediaplayer.pause()
             self.playbutton.setText("Play")
             self.is_paused = True
-            self.last_action = 'pause'
-            self.current_media_ts = self.positionslider.value()
-            self.timer.stop()
+            self.action = 'pause'
+            #self.timer.stop()
         else:
             if self.mediaplayer.play() == -1:
                 self.open_file()
@@ -200,9 +219,8 @@ class Player(QtWidgets.QMainWindow):
 
             self.mediaplayer.play()
             self.playbutton.setText("Pause")
-            self.last_action = 'play'
-            self.current_media_ts = self.positionslider.value()
-            self.timer.start()
+            self.action = 'play'
+            #self.timer.start()
             self.is_paused = False
 
     def stop(self):
@@ -234,10 +252,6 @@ class Player(QtWidgets.QMainWindow):
         # Set the title of the track as window title
         self.setWindowTitle(self.media.get_meta(0))
 
-        # The media player has to be 'connected' to the QFrame (otherwise the
-        # video would be displayed in it's own window). This is platform
-        # specific, so we must give the ID of the QFrame (or similar object) to
-        # vlc. Different platforms have different functions for this
         if platform.system() == "Linux": # for Linux using the X Server
             self.mediaplayer.set_xwindow(int(self.videoframe.winId()))
         elif platform.system() == "Windows": # for Windows
@@ -248,11 +262,15 @@ class Player(QtWidgets.QMainWindow):
         self.play_pause()
         
         if self.media_name is not None:
-            self.update_status(name=self.media_name, ts=0, action='play')
+            self.update_status(name=self.media_name, action='none')
         else:
-            self.update_status(name=self.media.get_meta(0), ts=0, action='play')
+            self.update_status(name=self.media.get_meta(0), action='none')
+            
+        self.playbutton.setEnabled(False)
+        self.stopbutton.setEnabled(False)
+        self.positionslider.setEnabled(False)
         
-        self.nthread = threading.Thread(target=self.schedule_pings, kwargs={'interval_ms': 200}, daemon=True)
+        self.nthread = threading.Thread(target=self.schedule_pings, kwargs={'interval_ms': 1000}, daemon=True)
         self.nthread.start()
 
     def set_volume(self, volume):
@@ -263,36 +281,25 @@ class Player(QtWidgets.QMainWindow):
     def set_position(self):
         """Set the movie position according to the position slider.
         """
-
-        # The vlc MediaPlayer needs a float value between 0 and 1, Qt uses
-        # integer variables, so you need a factor; the higher the factor, the
-        # more precise are the results (1000 should suffice).
-
-        # Set the media position to where the slider was dragged
-        self.timer.stop()
+        #self.timer.stop()
         pos = self.positionslider.value()
-        #print(pos)
         self.mediaplayer.set_position(pos / 2147483647)
-        self.timer.start()
+        #self.timer.start()
 
     def update_ui(self):
         """Updates the user interface"""
-
-        # Set the slider's position to its corresponding media position
-        # Note that the setValue function only takes values of type int,
-        # so we must first convert the corresponding media position.
         media_pos = int(self.mediaplayer.get_position() * 2147483647)
         self.positionslider.setValue(media_pos)
-
+        
+        with self.nthread_lock:
+            for ev in self.action_queue:
+                self.execute_action(ev)
+            self.action_queue = []
         # No need to call this function if nothing is played
-        if not self.mediaplayer.is_playing():
-            self.timer.stop()
-
-            # After the video finished, the play button stills shows "Pause",
-            # which is not the desired behavior of a media player.
-            # This fixes that "bug".
-            if not self.is_paused:
-                self.stop()
+        #if not self.mediaplayer.is_playing():
+            #self.timer.stop()
+            #if not self.is_paused:
+                #self.stop()
 
 def main():
     """Entry point for our simple vlc player
