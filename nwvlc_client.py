@@ -12,16 +12,6 @@ import threading
 from datetime import datetime, time, timedelta
 import pause
 
-class NWSyncer:
-    def __init__(self, url="http://127.0.0.1:4270/poll_status"):
-        self.url = url
-        self.media_name = None
-        self.current_media_ts = None
-        self.current_media_status = None
-        self.action = None
-        self.should_stop = False
-
-   
 
 class Player(QtWidgets.QMainWindow):
     """A simple Media Player using VLC and Qt
@@ -124,7 +114,15 @@ class Player(QtWidgets.QMainWindow):
         self.nthread = None
         self.nthread_lock = threading.Lock()
         self.action_queue = []
-        self.setWindowTitle("Media Player")
+        try:
+            logopath = sys._MEIPASS + '/nwvlclog.png'
+            if os.path.isfile(logopath):
+                self.setWindowIcon(QtGui.QIcon(logopath))
+            elif os.path.isfile('nwvlclog.png'):
+                self.setWindowIcon(QtGui.QIcon('nwvlclog.png'))
+        except:
+            print("error looking for logo")
+        self.setWindowTitle("NWVLC Player")
 
         # Create a basic vlc instance
         self.instance = vlc.Instance()

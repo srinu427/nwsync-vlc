@@ -1,0 +1,6 @@
+pyqt5
+qt_material
+python-vlc
+requests
+pause
+datetime
