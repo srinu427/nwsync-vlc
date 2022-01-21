@@ -26,6 +26,7 @@ def force_assume_sync():
                 del data['media_name']
                 return jsonify({"result": "removed"})
             return jsonify({"result": "cant find specified media_name"})
+    return jsonify({"result": "invalid request"})
 
 @app.route("/poll_status", methods=["POST"])
 def handle_nwvlc_req():
