@@ -11,6 +11,7 @@ import requests
 import threading
 from datetime import datetime, time, timedelta
 import pause
+import pathlib
 
 
 class Player(QtWidgets.QMainWindow):
@@ -354,6 +355,10 @@ class Player(QtWidgets.QMainWindow):
                             mitem.setChecked(True)
                         mitem.triggered.connect(self.set_aud_track)
                     self.aud_menu.menuAction().setVisible(True)
+                # Add external subtitles
+                load_subtitle_action = QtWidgets.QAction("Load Subtitle", self)
+                self.sub_menu.addAction(load_subtitle_action)
+                load_subtitle_action.triggered.connect(self.open_subtitle_file)
         
         if self.media_name is not None:
             self.update_status(name=self.media_name, action='none')
@@ -399,6 +404,24 @@ class Player(QtWidgets.QMainWindow):
         for ev in tmp_ev_queue:
             self.execute_action(ev)
         self.timer.start()
+
+    def open_subtitle_file(self):
+        """
+        Opens a file dialog box to choose srt file
+        """
+        dlg = QtWidgets.QFileDialog()
+        dlg.setNameFilters(["Subtitle file (*.srt)"])
+        if dlg.exec_():
+            filename = dlg.selectedFiles()[0]
+        if not filename or (filename is not None and not os.path.isfile(filename)):
+            return
+        try:
+            self.mediaplayer.add_slave(i_type=vlc.MediaSlaveType.subtitle, psz_uri=pathlib.Path(filename).as_uri(),
+                                       b_select=True)
+        except Exception as e:
+            print(e)
+
+        # TODO: refresh sub menu again after loading subs
             
 
 def main():
