@@ -410,7 +410,7 @@ class Player(QtWidgets.QMainWindow):
         self.timer.start()
         
         if not self.mediaplayer.is_playing():
-            if not self.mediaplayer.is_paused():
+            if not self.is_paused:
                 self.stop()
 
     def open_subtitle_file(self):
