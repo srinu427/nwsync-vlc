@@ -266,7 +266,7 @@ class Player(QtWidgets.QMainWindow):
             self.action = 'pause'
             #self.timer.stop()
         else:
-            if self.mediaplayer.play() == -1:
+            if self.mediaplayer.play() == -1 or self.media is None:
                 self.open_file()
                 return
 
@@ -280,6 +280,7 @@ class Player(QtWidgets.QMainWindow):
         """Stop player
         """
         self.mediaplayer.stop()
+        self.media = None
         self.aud_tracks = None
         self.sub_tracks = None
         self.aud_menu.menuAction().setVisible(False)
