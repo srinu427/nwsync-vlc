@@ -22,8 +22,10 @@ def force_assume_sync():
     data = request.json
     if data is not None:
         if 'media_name' in data:
-            if data['media_name'] in media_store:
-                del data['media_name']
+            mname = data['media_name']
+            if mname in media_store:
+                media_store[mname]['users'] = []
+                media_store[mname]['acted_users'] = []
                 return jsonify({"result": "removed"})
             return jsonify({"result": "cant find specified media_name"})
     return jsonify({"result": "invalid request"})
