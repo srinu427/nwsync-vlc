@@ -237,7 +237,7 @@ class Player(QtWidgets.QMainWindow):
         self.timer = QtCore.QTimer(self)
         self.timer.setInterval(1000)
         self.timer.timeout.connect(self.update_ui)
-        self.timer.start()
+        #self.timer.start()
 
     def toggle_fscreen(self, args):
         if self.isFullScreen():
@@ -267,7 +267,7 @@ class Player(QtWidgets.QMainWindow):
             self.action = 'pause'
             #self.timer.stop()
         else:
-            if self.mediaplayer.play() == -1 or self.media is None:
+            if self.media is None:
                 self.open_file()
                 return
 
@@ -286,6 +286,7 @@ class Player(QtWidgets.QMainWindow):
         self.sub_tracks = None
         self.aud_menu.menuAction().setVisible(False)
         self.sub_menu.menuAction().setVisible(False)
+        self.timer.stop()
         self.should_stop = True
         self.nthread.join()
         self.playbutton.setText("Play")
@@ -365,7 +366,9 @@ class Player(QtWidgets.QMainWindow):
             self.update_status(name=self.media_name, action='none')
         else:
             self.update_status(name=self.media.get_meta(0), action='none')
-            
+        
+        self.timer.start()
+        
         self.playbutton.setEnabled(False)
         self.stopbutton.setEnabled(False)
         self.positionslider.setEnabled(False)
@@ -405,6 +408,10 @@ class Player(QtWidgets.QMainWindow):
         for ev in tmp_ev_queue:
             self.execute_action(ev)
         self.timer.start()
+        
+        if not self.mediaplayer.is_playing():
+            if not self.mediaplayer.is_paused():
+                self.stop()
 
     def open_subtitle_file(self):
         """
@@ -412,6 +419,7 @@ class Player(QtWidgets.QMainWindow):
         """
         dlg = QtWidgets.QFileDialog()
         dlg.setNameFilters(["Subtitle file (*.srt)"])
+        filename=''
         if dlg.exec_():
             filename = dlg.selectedFiles()[0]
         if not filename or (filename is not None and not os.path.isfile(filename)):
