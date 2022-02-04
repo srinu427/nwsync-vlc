@@ -7,7 +7,7 @@ import platform
 import requests
 import threading
 
-from PySide6 import QtWidgets, QtGui, QtCore
+from PyQt6 import QtWidgets, QtGui, QtCore
 from qt_material import apply_stylesheet
 
 
@@ -137,7 +137,7 @@ class Player(QtWidgets.QMainWindow):
         
         if self.media_name is None or self.uname is None:
             self.etextview = QtWidgets.QLabel()
-            self.etextview.setAlignment(QtCore.Qt.AlignCenter)
+            self.etextview.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
             self.etextview.setText("The fields media_name or uname not found in config.json\n" + \
                                    "please create one and try running. sample config.json\n\n" + \
                                    '{"url": "http://127.0.0.1:4270/poll_status",\n"media_name": "ex_media_name"\n,"uname": "user_name-123"\n,"nwpoll_interval_ms": 1000}')
@@ -152,7 +152,7 @@ class Player(QtWidgets.QMainWindow):
             conn_valid = False
         if not conn_valid:
             self.etextview = QtWidgets.QLabel()
-            self.etextview.setAlignment(QtCore.Qt.AlignCenter)
+            self.etextview.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
             self.etextview.setText("Cannot reach the URL " + self.url)
             self.vboxlayout = QtWidgets.QVBoxLayout()
             self.vboxlayout.addWidget(self.etextview)
