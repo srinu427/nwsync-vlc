@@ -1,21 +1,19 @@
-import platform
 import os
 import sys
-import json
-
-#from PyQt6 import QtWidgets, QtGui, QtCore
-from PySide6 import QtWidgets, QtGui, QtCore
-from qt_material import apply_stylesheet
 import vlc
+import json
+import pathlib
+import platform
 import requests
 import threading
-import pathlib
+
+from PySide6 import QtWidgets, QtGui, QtCore
+from qt_material import apply_stylesheet
 
 
 class Player(QtWidgets.QMainWindow):
     """A simple Media Player using VLC and Qt
     """
-    
     def send_status(self):
         if self.media_name is not None and self.uname is not None:
             with self.nthread_lock:
@@ -440,7 +438,7 @@ def main():
     apply_stylesheet(app, theme='dark_blue.xml')
     player.show()
     player.resize(960, 600)
-    #sys.exit(app.exec())
+    sys.exit(app.exec())
 
 if __name__ == "__main__":
     main()
