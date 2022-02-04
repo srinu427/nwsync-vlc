@@ -25,9 +25,11 @@ class Player(QtWidgets.QMainWindow):
                                               'user': self.uname})
                 except:
                     print("Error sending status")
+                print({'media_name': self.media_name,'current_ts': self.positionslider.value(),'action': self.action,'user': self.uname})
+                print(res.json())
                 self.action_queue += [res.json()]
-        if self.action is not None:
-            self.action = None
+                if self.action is not None:
+                    self.action = None
             
     def spawn_nthread(self):
         nthread = threading.Thread(target=self.send_status, daemon=True)
@@ -60,7 +62,7 @@ class Player(QtWidgets.QMainWindow):
 
         if 'action' in sdata:
             if sdata['action'] == 'play':
-                #print("signal recieved to play at: " + str(sdata['current_ts']))
+                print("signal recieved to play at: " + str(sdata['current_ts']))
                 if not self.mediaplayer.is_playing():
                     self.play_pause()
                     self.action = None
@@ -68,7 +70,7 @@ class Player(QtWidgets.QMainWindow):
                     self.positionslider.setValue(sdata['current_ts'])
                 self.set_position()
             if sdata['action'] == 'pause':
-                #print("signal recieved to pause at: " + str(sdata['current_ts']))
+                print("signal recieved to pause at: " + str(sdata['current_ts']))
                 if self.mediaplayer.is_playing():
                     self.play_pause()
                     self.action = None
@@ -76,7 +78,7 @@ class Player(QtWidgets.QMainWindow):
                     self.positionslider.setValue(sdata['current_ts'])
                 self.set_position()
             if sdata['action'] == 'seek':
-                #print("signal recieved to seek at: " + str(sdata['current_ts']))
+                print("signal recieved to seek at: " + str(sdata['current_ts']))
                 self.positionslider.setValue(sdata['current_ts'])
                 self.set_position()
 
@@ -172,7 +174,6 @@ class Player(QtWidgets.QMainWindow):
         self.videoframe.mouseDoubleClickEvent = self.toggle_fscreen
 
         self.positionslider = QtWidgets.QSlider(QtCore.Qt.Orientation.Horizontal, self)
-        self.positionslider.setStyleSheet("QScrollBar::handle:vertical {background: white;min-width: 0px;}")
         self.positionslider.setToolTip("Position")
         self.positionslider.setMaximum(2147483647)
         self.positionslider.sliderMoved.connect(self.set_position)
@@ -181,7 +182,7 @@ class Player(QtWidgets.QMainWindow):
         self.hbuttonbox = QtWidgets.QHBoxLayout()
         self.playbutton = QtWidgets.QPushButton("Play")
         self.hbuttonbox.addWidget(self.playbutton)
-        self.playbutton.clicked.connect(self.play_pause)
+        self.playbutton.clicked.connect(self.locked_play_pause)
 
         self.stopbutton = QtWidgets.QPushButton("Stop")
         self.hbuttonbox.addWidget(self.stopbutton)
@@ -247,6 +248,13 @@ class Player(QtWidgets.QMainWindow):
             self.playbutton.hide()
             self.vboxlayout.setContentsMargins(0, 0, 0, 0)
             self.showFullScreen()
+
+    def locked_play_pause(self):
+        with self.nthread_lock:
+            self.play_pause()
+            self.playbutton.setEnabled(False)
+            self.stopbutton.setEnabled(False)
+            self.positionslider.setEnabled(False)
 
     def play_pause(self):
         """Toggle play/pause status

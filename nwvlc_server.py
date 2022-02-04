@@ -1,3 +1,4 @@
+import os
 from flask import Flask, request, jsonify
 
 app = Flask(__name__)
@@ -15,6 +16,11 @@ def test_list_eq(l1, l2):
 
 def make_act_resp(action, current_ts, synced):
     return jsonify({'action': action, 'current_ts': current_ts, 'synced': synced})
+
+
+@app.route("/get_full_store", methods=["GET"])
+def get_full_store():
+    return jsonify(media_store)
 
 
 @app.route("/clear_mname_data", methods=["POST"])
@@ -71,4 +77,4 @@ def handle_nwvlc_req():
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=4270)
+    app.run(host="0.0.0.0", port=int(os.environ['PORT']))
