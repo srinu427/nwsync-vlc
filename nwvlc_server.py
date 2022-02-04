@@ -37,7 +37,12 @@ def handle_nwvlc_req():
     if data is not None:
         if 'media_name' in data:
             mname = data['media_name']
-            if data['media_name'] in media_store:
+            if mname in media_store:
+                # Remove User
+                if data['action'] == 'stop':
+                    media_store[mname]['users'] = [x for x in media_store[mname]['users'] if x != data['user']]
+                    media_store[mname]['acted_users'] = [x for x in media_store[mname]['acted_users'] if x != data['user']]
+                    return(make_act_resp('none', media_store[mname]['current_ts'], True))
                 # New User
                 if data['user'] not in media_store[mname]['users']:
                     media_store[mname]['users'] += [data['user']]

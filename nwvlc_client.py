@@ -3,14 +3,12 @@ import os
 import sys
 import json
 
-from PyQt5 import QtWidgets, QtGui, QtCore
-#from PySide6 import QtWidgets, QtGui, QtCore
+#from PyQt6 import QtWidgets, QtGui, QtCore
+from PySide6 import QtWidgets, QtGui, QtCore
 from qt_material import apply_stylesheet
 import vlc
 import requests
 import threading
-from datetime import datetime, time, timedelta
-import pause
 import pathlib
 
 
@@ -29,23 +27,15 @@ class Player(QtWidgets.QMainWindow):
                                               'user': self.uname})
                 except:
                     print("Error sending status")
-                #print({'media_name': self.media_name,'current_ts': self.positionslider.value(),'action': self.action,'user': self.uname})
-                #print(res.json())
                 self.action_queue += [res.json()]
         if self.action is not None:
             self.action = None
             
-    def schedule_pings(self, interval_ms=200):
-        clock_start = datetime.now()
-        tdelta = timedelta(seconds=int(interval_ms/1000),milliseconds=interval_ms%1000)
-        wait_until = clock_start + tdelta
-        while not self.should_stop:
-            if wait_until < datetime.now():  
-                diff = (datetime.now() - wait_until)
-                diff = int(int(diff.total_seconds()*1000)/interval_ms) + 1
-                wait_until += diff*tdelta
-            pause.until(wait_until)
-            self.send_status()
+    def spawn_nthread(self):
+        nthread = threading.Thread(target=self.send_status, daemon=True)
+        nthread.start()
+        if self.should_stop_n:
+            self.n_timer.stop()
     
     def update_status(self, name=None, action=None):
         if name is not None:
@@ -72,21 +62,23 @@ class Player(QtWidgets.QMainWindow):
 
         if 'action' in sdata:
             if sdata['action'] == 'play':
-                print("signal recieved to play at: " + str(sdata['current_ts']))
-                self.positionslider.setValue(sdata['current_ts'])
-                self.set_position()
-                if not self.mediaplayer.is_playing():   
+                #print("signal recieved to play at: " + str(sdata['current_ts']))
+                if not self.mediaplayer.is_playing():
                     self.play_pause()
                     self.action = None
+                with self.uthread_lock:
+                    self.positionslider.setValue(sdata['current_ts'])
+                self.set_position()
             if sdata['action'] == 'pause':
-                print("signal recieved to pause at: " + str(sdata['current_ts']))
+                #print("signal recieved to pause at: " + str(sdata['current_ts']))
                 if self.mediaplayer.is_playing():
-                    self.play_pause()    
+                    self.play_pause()
                     self.action = None
-                self.positionslider.setValue(sdata['current_ts'])
+                with self.uthread_lock:
+                    self.positionslider.setValue(sdata['current_ts'])
                 self.set_position()
             if sdata['action'] == 'seek':
-                print("signal recieved to seek at: " + str(sdata['current_ts']))
+                #print("signal recieved to seek at: " + str(sdata['current_ts']))
                 self.positionslider.setValue(sdata['current_ts'])
                 self.set_position()
 
@@ -110,10 +102,11 @@ class Player(QtWidgets.QMainWindow):
                 self.nwpoll_interval_ms = cjdata['nwpoll_interval_ms']
             
         self.action = None
-        self.should_stop = False
+        self.should_stop_u = False
+        self.should_stop_n = False
         
-        self.nthread = None
         self.nthread_lock = threading.Lock()
+        self.uthread_lock = threading.Lock()
         self.action_queue = []
         try:
             logopath = sys._MEIPASS + '/nwvlclog.png'
@@ -146,7 +139,6 @@ class Player(QtWidgets.QMainWindow):
         
         if self.media_name is None or self.uname is None:
             self.etextview = QtWidgets.QLabel()
-            # self.etextview.setReadOnly(True)
             self.etextview.setAlignment(QtCore.Qt.AlignCenter)
             self.etextview.setText("The fields media_name or uname not found in config.json\n" + \
                                    "please create one and try running. sample config.json\n\n" + \
@@ -162,7 +154,6 @@ class Player(QtWidgets.QMainWindow):
             conn_valid = False
         if not conn_valid:
             self.etextview = QtWidgets.QLabel()
-            # self.etextview.setReadOnly(True)
             self.etextview.setAlignment(QtCore.Qt.AlignCenter)
             self.etextview.setText("Cannot reach the URL " + self.url)
             self.vboxlayout = QtWidgets.QVBoxLayout()
@@ -177,12 +168,13 @@ class Player(QtWidgets.QMainWindow):
             self.videoframe = QtWidgets.QFrame()
 
         self.palette = self.videoframe.palette()
-        self.palette.setColor(QtGui.QPalette.Window, QtGui.QColor(0, 0, 0))
+        self.palette.setColor(QtGui.QPalette.ColorRole.Window, QtGui.QColor(0, 0, 0))
         self.videoframe.setPalette(self.palette)
         self.videoframe.setAutoFillBackground(True)
         self.videoframe.mouseDoubleClickEvent = self.toggle_fscreen
 
-        self.positionslider = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
+        self.positionslider = QtWidgets.QSlider(QtCore.Qt.Orientation.Horizontal, self)
+        self.positionslider.setStyleSheet("QScrollBar::handle:vertical {background: white;min-width: 0px;}")
         self.positionslider.setToolTip("Position")
         self.positionslider.setMaximum(2147483647)
         self.positionslider.sliderMoved.connect(self.set_position)
@@ -198,8 +190,7 @@ class Player(QtWidgets.QMainWindow):
         self.stopbutton.clicked.connect(self.stop)
         
         self.hbuttonbox.addStretch(1)
-        #self.hnamebox.addStretch(1)
-        self.volumeslider = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
+        self.volumeslider = QtWidgets.QSlider(QtCore.Qt.Orientation.Horizontal, self)
         self.volumeslider.setMaximum(100)
         self.volumeslider.setValue(self.mediaplayer.audio_get_volume())
         self.volumeslider.setToolTip("Volume")
@@ -211,7 +202,6 @@ class Player(QtWidgets.QMainWindow):
         self.vboxlayout.addWidget(self.videoframe)
         self.vboxlayout.addWidget(self.positionslider)
         self.vboxlayout.addLayout(self.hbuttonbox)
-        #self.vboxlayout.addLayout(self.hnamebox)
 
         self.widget.setLayout(self.vboxlayout)
 
@@ -226,18 +216,21 @@ class Player(QtWidgets.QMainWindow):
         self.sub_menu.menuAction().setVisible(False)
 
         # Add actions to file menu
-        open_action = QtWidgets.QAction("Load Video", self)
-        close_action = QtWidgets.QAction("Close App", self)
+        open_action = QtGui.QAction("Load Video", self)
+        close_action = QtGui.QAction("Close App", self)
         file_menu.addAction(open_action)
         file_menu.addAction(close_action)
 
         open_action.triggered.connect(self.open_file)
         close_action.triggered.connect(sys.exit)
 
-        self.timer = QtCore.QTimer(self)
-        self.timer.setInterval(1000)
-        self.timer.timeout.connect(self.update_ui)
-        #self.timer.start()
+        self.u_timer = QtCore.QTimer(self)
+        self.u_timer.setInterval(100)
+        self.u_timer.timeout.connect(self.spawn_uui_thread)
+        
+        self.n_timer = QtCore.QTimer(self)
+        self.n_timer.setInterval(self.nwpoll_interval_ms)
+        self.n_timer.timeout.connect(self.spawn_nthread)
 
     def toggle_fscreen(self, args):
         if self.isFullScreen():
@@ -265,16 +258,13 @@ class Player(QtWidgets.QMainWindow):
             self.playbutton.setText("Play")
             self.is_paused = True
             self.action = 'pause'
-            #self.timer.stop()
         else:
             if self.media is None:
                 self.open_file()
                 return
-
             self.mediaplayer.play()
             self.playbutton.setText("Pause")
             self.action = 'play'
-            #self.timer.start()
             self.is_paused = False
 
     def stop(self):
@@ -286,10 +276,50 @@ class Player(QtWidgets.QMainWindow):
         self.sub_tracks = None
         self.aud_menu.menuAction().setVisible(False)
         self.sub_menu.menuAction().setVisible(False)
-        self.timer.stop()
-        self.should_stop = True
-        self.nthread.join()
+        self.should_stop_u = True
+        self.action = 'stop'
+        self.should_stop_n = True
         self.playbutton.setText("Play")
+
+    def refresh_aud_sub_tracks(self):
+        if self.media is None:
+            return
+        while (self.aud_tracks is None or self.sub_tracks is None):
+            if self.mediaplayer.is_playing():
+                # Add Sub track options
+                if self.mediaplayer.video_get_spu_count() > 0 and self.sub_tracks is None:
+                    self.sub_tracks = self.mediaplayer.video_get_spu_description()
+                    selected_sub_track = self.mediaplayer.video_get_spu()
+                    self.st_group = QtGui.QActionGroup(self);
+                    self.sub_menu.clear()
+                    for st in self.sub_tracks:
+                        mitem = QtGui.QAction(st[1].decode("utf-8") , self.st_group)
+                        mitem.setCheckable(True)
+                        mitem.data = st
+                        self.sub_menu.addAction(mitem)
+                        if st[0] == selected_sub_track:
+                            mitem.setChecked(True)
+                        mitem.triggered.connect(self.set_sub_track)
+                    self.sub_menu.menuAction().setVisible(True)
+                # Add Audio track options
+                if self.mediaplayer.audio_get_track_count() > 0 and self.aud_tracks is None:
+                    self.aud_tracks = self.mediaplayer.audio_get_track_description()
+                    selected_aud_track = self.mediaplayer.audio_get_track()
+                    self.at_group = QtGui.QActionGroup(self);
+                    self.aud_menu.clear()
+                    for at in self.aud_tracks:
+                        mitem = QtGui.QAction(at[1].decode("utf-8") , self.at_group)
+                        mitem.setCheckable(True)
+                        mitem.data = at
+                        self.aud_menu.addAction(mitem)
+                        if at[0] == selected_aud_track:
+                            mitem.setChecked(True)
+                        mitem.triggered.connect(self.set_aud_track)
+                    self.aud_menu.menuAction().setVisible(True)
+                # Add external subtitles
+                load_subtitle_action = QtGui.QAction("Load Subtitle", self)
+                self.sub_menu.addAction(load_subtitle_action)
+                load_subtitle_action.triggered.connect(self.open_subtitle_file)
 
     def open_file(self):
         """Open a media file in a MediaPlayer
@@ -297,7 +327,6 @@ class Player(QtWidgets.QMainWindow):
 
         dialog_txt = "Choose Media File"
         filename = QtWidgets.QFileDialog.getOpenFileName(self, dialog_txt, os.path.expanduser('~'))
-        #print(filename)
         if not filename or (filename is not None and not os.path.isfile(filename[0])):
             return
 
@@ -325,56 +354,23 @@ class Player(QtWidgets.QMainWindow):
         self.aud_tracks = None
         self.sub_tracks = None
         
-        while (self.aud_tracks is None or self.sub_tracks is None):
-            if self.mediaplayer.is_playing():
-                # Add Sub track options
-                if self.mediaplayer.video_get_spu_count() > 0 and self.sub_tracks is None:
-                    self.sub_tracks = self.mediaplayer.video_get_spu_description()
-                    selected_sub_track = self.mediaplayer.video_get_spu()
-                    self.st_group = QtWidgets.QActionGroup(self);
-                    self.sub_menu.clear()
-                    for st in self.sub_tracks:
-                        mitem = QtWidgets.QAction(st[1].decode("utf-8") , self.st_group)
-                        mitem.setCheckable(True)
-                        mitem.data = st
-                        self.sub_menu.addAction(mitem)
-                        if st[0] == selected_sub_track:
-                            mitem.setChecked(True)
-                        mitem.triggered.connect(self.set_sub_track)
-                    self.sub_menu.menuAction().setVisible(True)
-                # Add Audio track options
-                if self.mediaplayer.audio_get_track_count() > 0 and self.aud_tracks is None:
-                    self.aud_tracks = self.mediaplayer.audio_get_track_description()
-                    selected_aud_track = self.mediaplayer.audio_get_track()
-                    self.at_group = QtWidgets.QActionGroup(self);
-                    self.aud_menu.clear()
-                    for at in self.aud_tracks:
-                        mitem = QtWidgets.QAction(at[1].decode("utf-8") , self.at_group)
-                        mitem.setCheckable(True)
-                        mitem.data = at
-                        self.aud_menu.addAction(mitem)
-                        if at[0] == selected_aud_track:
-                            mitem.setChecked(True)
-                        mitem.triggered.connect(self.set_aud_track)
-                    self.aud_menu.menuAction().setVisible(True)
-                # Add external subtitles
-                load_subtitle_action = QtWidgets.QAction("Load Subtitle", self)
-                self.sub_menu.addAction(load_subtitle_action)
-                load_subtitle_action.triggered.connect(self.open_subtitle_file)
+        self.refresh_aud_sub_tracks()
         
         if self.media_name is not None:
             self.update_status(name=self.media_name, action='none')
         else:
             self.update_status(name=self.media.get_meta(0), action='none')
         
-        self.timer.start()
+        self.should_stop_u = False
+        self.u_timer.start()
         
         self.playbutton.setEnabled(False)
         self.stopbutton.setEnabled(False)
         self.positionslider.setEnabled(False)
         
-        self.nthread = threading.Thread(target=self.schedule_pings, kwargs={'interval_ms': self.nwpoll_interval_ms}, daemon=True)
-        self.nthread.start()
+        self.should_stop_n = False
+        self.n_timer.start()
+        
 
     def set_volume(self, volume):
         """Set the volume
@@ -384,10 +380,9 @@ class Player(QtWidgets.QMainWindow):
     def set_position(self):
         """Set the movie position according to the position slider.
         """
-        self.timer.stop()
-        pos = self.positionslider.value()
-        self.mediaplayer.set_position(pos / 2147483647)
-        self.timer.start()
+        with self.uthread_lock:
+            pos = self.positionslider.value()
+            self.mediaplayer.set_position(pos / 2147483647)
 
     def set_sub_track(self):
         self.mediaplayer.video_set_spu(self.st_group.checkedAction().data[0])
@@ -395,23 +390,27 @@ class Player(QtWidgets.QMainWindow):
     def set_aud_track(self):
         self.mediaplayer.audio_set_track(self.at_group.checkedAction().data[0])
 
+    def spawn_uui_thread(self):
+        uthread = threading.Thread(target=self.update_ui, daemon=True)
+        uthread.start()
+        if self.should_stop_u:
+            self.u_timer.stop()
+
     def update_ui(self):
         """Updates the user interface"""
-        media_pos = int(self.mediaplayer.get_position() * 2147483647)
-        self.positionslider.setValue(media_pos)
-        
+        with self.uthread_lock:
+            media_pos = int(self.mediaplayer.get_position() * 2147483647)
+            self.positionslider.setValue(media_pos)
+            
         with self.nthread_lock:
-            tmp_ev_queue = self.action_queue
+            for ev in self.action_queue:
+                self.execute_action(ev)
             self.action_queue = []
-        
-        self.timer.stop()
-        for ev in tmp_ev_queue:
-            self.execute_action(ev)
-        self.timer.start()
-        
-        if not self.mediaplayer.is_playing():
-            if not self.is_paused:
-                self.stop()
+            
+        with self.uthread_lock:
+            if not self.mediaplayer.is_playing():
+                if not self.is_paused:
+                    self.stop()
 
     def open_subtitle_file(self):
         """
@@ -438,11 +437,10 @@ def main():
     """
     app = QtWidgets.QApplication(sys.argv)
     player = Player()
-    apply_stylesheet(app, theme='dark_teal.xml')
+    apply_stylesheet(app, theme='dark_blue.xml')
     player.show()
-    #player.videoframe.show()
     player.resize(960, 600)
-    sys.exit(app.exec_())
+    #sys.exit(app.exec())
 
 if __name__ == "__main__":
     main()
