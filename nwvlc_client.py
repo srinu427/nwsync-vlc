@@ -172,8 +172,8 @@ class Player(QtWidgets.QMainWindow):
                                               'user': self.uname})
                 except:
                     print("Error sending status")
-                print({'media_name': self.media_name,'current_ts': self.positionslider.value(),'action': self.action,'user': self.uname})
-                print(res.json())
+                #print({'media_name': self.media_name,'current_ts': self.positionslider.value(),'action': self.action,'user': self.uname})
+                #print(res.json())
                 self.action_queue += [res.json()]
                 if self.action is not None:
                     self.action = None
