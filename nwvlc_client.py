@@ -388,21 +388,23 @@ class Player(QtWidgets.QMainWindow):
             self.volumeslider.show()
             self.stopbutton.show()
             self.playbutton.show()
+            self.settingsbutton.show()
         else:
             self.menuBar().hide()
             self.positionslider.hide()
             self.volumeslider.hide()
             self.stopbutton.hide()
             self.playbutton.hide()
+            self.settingsbutton.hide()
             self.vboxlayout.setContentsMargins(0, 0, 0, 0)
             self.showFullScreen()
 
     def locked_play_pause(self):
         with self.nthread_lock:
-            self.play_pause()
             self.playbutton.setEnabled(False)
             self.stopbutton.setEnabled(False)
             self.positionslider.setEnabled(False)
+            self.play_pause()
 
     def play_pause(self):
         """Toggle play/pause status
@@ -482,6 +484,9 @@ class Player(QtWidgets.QMainWindow):
         dialog_txt = "Choose Media File"
         filename = QtWidgets.QFileDialog.getOpenFileName(self, dialog_txt, os.path.expanduser('~'))
         if not filename or (filename is not None and not os.path.isfile(filename[0])):
+            self.playbutton.setEnabled(True)
+            self.stopbutton.setEnabled(True)
+            self.positionslider.setEnabled(True)
             return
 
         # getOpenFileName returns a tuple, so use only the actual file name
