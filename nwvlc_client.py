@@ -11,6 +11,153 @@ from PyQt6 import QtWidgets, QtGui, QtCore
 from qt_material import apply_stylesheet
 
 
+def write_config_json(url, mname, uname, nw_poll_interval):
+    try:
+        with open('config.json', 'w') as fw:
+            fw.write(json.dumps({'url': url, 'media_name': mname, 'uname': uname, 'nwpoll_interval_ms': nw_poll_interval}, indent=4))
+        return True
+    except:
+        return False
+
+
+def read_config_json():
+    url = 'http://127.0.0.1:4270/poll_status'
+    mname = 'ex_media_name'
+    uname = 'ex_user_name'
+    nw_poll_interval = 1000
+    
+    try:
+        if not os.path.isfile('config.json'):
+            write_config_json(url, mname, uname, nw_poll_interval)
+        with open('config.json', 'r') as fr:
+            conf = json.load(fr)
+    except:
+        return {'url': url, 'media_name': mname, 'uname': uname, 'nwpoll_interval_ms': nw_poll_interval}
+            
+    filled = True
+    if 'url' in conf:
+        url = conf['url']
+    else:
+        filled = False
+    if 'media_name' in conf:
+        mname = conf['media_name']
+    else:
+        filled = False
+    if 'uname' in conf:
+        uname = conf['uname']
+    else:
+        filled = False
+    if 'nwpoll_interval_ms' in conf:
+        nw_poll_interval = conf['nwpoll_interval_ms']
+    else:
+        filled = False
+    
+    if not filled:
+        write_config_json(url, mname, uname, nw_poll_interval)
+    return {'url': url, 'media_name': mname, 'uname': uname, 'nwpoll_interval_ms': nw_poll_interval}
+        
+
+def check_url_valid(url):
+    try:
+        return requests.post(url, data={}).status_code == 200
+    except:
+        return False
+
+class SettingsPage(QtWidgets.QMainWindow):
+    def __init__(self, master=None, parent_window = None):
+        QtWidgets.QMainWindow.__init__(self, master)
+        self.setWindowTitle("Settings")
+        self.setWindowFlags(self.windowFlags() | QtCore.Qt.WindowType.CustomizeWindowHint)
+        self.setWindowFlags(self.windowFlags() & ~QtCore.Qt.WindowType.WindowMaximizeButtonHint)
+        self.setMinimumSize(500, 200)
+        self.setMaximumSize(800, 200)
+        self.parent_window = parent_window
+        self.create_ui()
+    
+    def apply_settings(self):
+        url = self.url_box.text()
+        mname = self.mname_box.text()
+        uname = self.uname_box.text()
+        nw_poll_interval = self.interval_box.value()
+        
+        if len(mname) < 4 or len(uname) < 4:
+            self.ok_txt.setText("ERROR: Media name/User name should be atleast 4 char long")
+            return
+        
+        if not check_url_valid(url):
+            self.ok_txt.setText("ERROR: Invalid URL given")
+            return
+        
+        self.ok_txt.setText("")
+        
+        write_config_json(url, mname, uname, nw_poll_interval)
+        self.parent_window.refresh_configs()
+        self.hide()
+    
+    def create_ui(self):
+        self.widget = QtWidgets.QWidget(self)
+        self.setCentralWidget(self.widget)
+        
+        self.vboxlayout = QtWidgets.QVBoxLayout()
+        self.vboxlayout.addStretch(1)
+        
+        self.mname_txt = QtWidgets.QLabel("Media Name")
+        self.mname_box = QtWidgets.QLineEdit()
+        tmp = QtWidgets.QHBoxLayout()
+        tmp.addWidget(self.mname_txt, 2)
+        tmp.addStretch(1)
+        tmp.addWidget(self.mname_box, 7)
+        self.vboxlayout.addLayout(tmp)
+        
+        self.uname_txt = QtWidgets.QLabel("User Name")
+        self.uname_box = QtWidgets.QLineEdit()
+        tmp = QtWidgets.QHBoxLayout()
+        tmp.addWidget(self.uname_txt, 2)
+        tmp.addStretch(1)
+        tmp.addWidget(self.uname_box, 7)
+        self.vboxlayout.addLayout(tmp)
+        
+        self.url_txt = QtWidgets.QLabel("Server URL")
+        self.url_box = QtWidgets.QLineEdit()
+        tmp = QtWidgets.QHBoxLayout()
+        tmp.addWidget(self.url_txt, 2)
+        tmp.addStretch(1)
+        tmp.addWidget(self.url_box, 7)
+        self.vboxlayout.addLayout(tmp)
+        
+        self.interval_txt = QtWidgets.QLabel("Poll Interval")
+        self.interval_box = QtWidgets.QSpinBox()
+        self.interval_box.setMinimum(500)
+        self.interval_box.setMaximum(2000)
+        tmp = QtWidgets.QHBoxLayout()
+        tmp.addWidget(self.interval_txt, 2)
+        tmp.addStretch(6)
+        tmp.addWidget(self.interval_box, 2)
+        self.vboxlayout.addLayout(tmp)
+ 
+        self.ok_btn = QtWidgets.QPushButton("Ok")
+        self.ok_btn.clicked.connect(self.apply_settings)
+        self.ok_txt = QtWidgets.QLabel("")
+        
+        tmp = QtWidgets.QHBoxLayout()
+        tmp.addWidget(self.ok_btn, 2)
+        tmp.addWidget(self.ok_txt, 8)
+        self.vboxlayout.addLayout(tmp)
+        
+        self.vboxlayout.addStretch(1) 
+        
+        self.widget.setLayout(self.vboxlayout)
+        
+    def show(self):
+        cjdata = read_config_json()
+        self.mname_box.setText(cjdata['media_name'])
+        self.uname_box.setText(cjdata['uname'])
+        self.url_box.setText(cjdata['url'])
+        self.interval_box.setValue(cjdata['nwpoll_interval_ms'])
+        super().show()
+        
+
+
 class Player(QtWidgets.QMainWindow):
     """A simple Media Player using VLC and Qt
     """
@@ -43,11 +190,27 @@ class Player(QtWidgets.QMainWindow):
         if action is not None:
             self.action = action
 
-    def set_mname(self):
-        self.media_name = self.mname_box.text()
-    
-    def set_uname(self):
-        self.uname = self.uname_box.text()
+    def refresh_configs(self):
+        with self.nthread_lock:
+            try:
+                res = requests.post(self.url,
+                                    json={'media_name': self.media_name,
+                                          'current_ts': self.positionslider.value(),
+                                          'action': 'stop',
+                                          'user': self.uname})
+            except:
+                print("Error sending status")
+            
+            cjdata = read_config_json()
+            self.url = cjdata['url']
+            self.media_name = cjdata['media_name']
+            self.uname = cjdata['uname']
+            self.nwpoll_interval_ms = cjdata['nwpoll_interval_ms']
+            
+            if self.invalid_url:
+                self.vboxlayout.removeWidget(self.etextview)
+                self.vboxlayout.removeWidget(self.settingsbutton)
+                self.create_ui()
         
     def execute_action(self, sdata):
         if 'synced' in sdata:
@@ -82,25 +245,9 @@ class Player(QtWidgets.QMainWindow):
                 self.positionslider.setValue(sdata['current_ts'])
                 self.set_position()
 
-    def __init__(self, master=None, url="http://127.0.0.1:4270/poll_status"):
+    def __init__(self, master=None):
         QtWidgets.QMainWindow.__init__(self, master)
-        self.url = url
-        self.media_name = None
-        self.uname = None
-        self.nwpoll_interval_ms = 1000
         
-        if (os.path.isfile("config.json")):
-            with open('config.json') as fr:
-                cjdata = json.load(fr)
-            if 'url' in cjdata:
-                self.url = cjdata['url']
-            if 'media_name' in cjdata:
-                self.media_name = cjdata['media_name']
-            if 'uname' in cjdata:
-                self.uname = cjdata['uname']
-            if 'nwpoll_interval_ms' in cjdata:
-                self.nwpoll_interval_ms = cjdata['nwpoll_interval_ms']
-            
         self.action = None
         self.should_stop_u = False
         self.should_stop_n = False
@@ -108,6 +255,11 @@ class Player(QtWidgets.QMainWindow):
         self.nthread_lock = threading.Lock()
         self.uthread_lock = threading.Lock()
         self.action_queue = []
+        
+        self.invalid_url = False
+        
+        self.refresh_configs()
+        
         try:
             logopath = sys._MEIPASS + '/nwvlclog.png'
             if os.path.isfile(logopath):
@@ -128,39 +280,34 @@ class Player(QtWidgets.QMainWindow):
         self.mediaplayer.video_set_mouse_input(False)
         self.mediaplayer.video_set_key_input(False)
 
+        self.widget = QtWidgets.QWidget(self)
+        self.setCentralWidget(self.widget)
+        self.vboxlayout = QtWidgets.QVBoxLayout()
+        self.widget.setLayout(self.vboxlayout)
         self.create_ui()
         self.is_paused = False
 
+    def create_settings_ui(self):
+        self.settings_ui.show()
+        
     def create_ui(self):
         """Set up the user interface, signals & slots
         """
-        self.widget = QtWidgets.QWidget(self)
-        self.setCentralWidget(self.widget)
+        self.settings_ui = SettingsPage(self, parent_window=self)
         
-        if self.media_name is None or self.uname is None:
-            self.etextview = QtWidgets.QLabel()
-            self.etextview.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-            self.etextview.setText("The fields media_name or uname not found in config.json\n" + \
-                                   "please create one and try running. sample config.json\n\n" + \
-                                   '{"url": "http://127.0.0.1:4270/poll_status",\n"media_name": "ex_media_name"\n,"uname": "user_name-123"\n,"nwpoll_interval_ms": 1000}')
-            self.vboxlayout = QtWidgets.QVBoxLayout()
-            self.vboxlayout.addWidget(self.etextview)
-            self.widget.setLayout(self.vboxlayout)
-            return
-        conn_valid = False
-        try:
-            conn_valid = requests.post(self.url, data={}).status_code == 200
-        except:
-            conn_valid = False
+        conn_valid = check_url_valid(self.url)
         if not conn_valid:
+            self.invalid_url = True
             self.etextview = QtWidgets.QLabel()
             self.etextview.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
             self.etextview.setText("Cannot reach the URL " + self.url)
-            self.vboxlayout = QtWidgets.QVBoxLayout()
+            self.settingsbutton = QtWidgets.QPushButton("Settings")
             self.vboxlayout.addWidget(self.etextview)
-            self.widget.setLayout(self.vboxlayout)
+            self.vboxlayout.addWidget(self.settingsbutton)
+            self.settingsbutton.clicked.connect(self.create_settings_ui)
             return
 
+        self.invalid_url = False
         # In this widget, the video will be drawn
         if platform.system() == "Darwin": # for MacOS
             self.videoframe = QtWidgets.QMacCocoaViewContainer(0)
@@ -188,6 +335,10 @@ class Player(QtWidgets.QMainWindow):
         self.hbuttonbox.addWidget(self.stopbutton)
         self.stopbutton.clicked.connect(self.stop)
         
+        self.settingsbutton = QtWidgets.QPushButton("Settings")
+        self.hbuttonbox.addWidget(self.settingsbutton)
+        self.settingsbutton.clicked.connect(self.create_settings_ui)
+        
         self.hbuttonbox.addStretch(1)
         self.volumeslider = QtWidgets.QSlider(QtCore.Qt.Orientation.Horizontal, self)
         self.volumeslider.setMaximum(100)
@@ -196,13 +347,10 @@ class Player(QtWidgets.QMainWindow):
         self.hbuttonbox.addWidget(self.volumeslider)
         self.volumeslider.valueChanged.connect(self.set_volume)
 
-        self.vboxlayout = QtWidgets.QVBoxLayout()
         self.vboxlayout.setContentsMargins(5, 5, 5, 5)
         self.vboxlayout.addWidget(self.videoframe)
         self.vboxlayout.addWidget(self.positionslider)
         self.vboxlayout.addLayout(self.hbuttonbox)
-
-        self.widget.setLayout(self.vboxlayout)
 
         menu_bar = self.menuBar()
 
