@@ -333,7 +333,7 @@ class Player(QtWidgets.QMainWindow):
 
         self.stopbutton = QtWidgets.QPushButton("Stop")
         self.hbuttonbox.addWidget(self.stopbutton)
-        self.stopbutton.clicked.connect(self.stop)
+        self.stopbutton.clicked.connect(self.vstop)
         
         self.settingsbutton = QtWidgets.QPushButton("Settings")
         self.hbuttonbox.addWidget(self.settingsbutton)
@@ -369,7 +369,7 @@ class Player(QtWidgets.QMainWindow):
         file_menu.addAction(close_action)
 
         open_action.triggered.connect(self.open_file)
-        close_action.triggered.connect(sys.exit)
+        close_action.triggered.connect(self.close)
 
         self.u_timer = QtCore.QTimer(self)
         self.u_timer.setInterval(100)
@@ -423,7 +423,7 @@ class Player(QtWidgets.QMainWindow):
             self.action = 'play'
             self.is_paused = False
 
-    def stop(self):
+    def vstop(self):
         """Stop player
         """
         self.mediaplayer.stop()
@@ -529,8 +529,7 @@ class Player(QtWidgets.QMainWindow):
         
         self.should_stop_n = False
         self.n_timer.start()
-        
-
+    
     def set_volume(self, volume):
         """Set the volume
         """
@@ -569,7 +568,7 @@ class Player(QtWidgets.QMainWindow):
         with self.uthread_lock:
             if not self.mediaplayer.is_playing():
                 if not self.is_paused:
-                    self.stop()
+                    self.vstop()
 
     def open_subtitle_file(self):
         """
@@ -589,7 +588,18 @@ class Player(QtWidgets.QMainWindow):
             print(e)
 
         # TODO: refresh sub menu again after loading subs
-            
+    
+    def clean_up(self, kill=True):
+        print("here")
+        self.u_timer.stop()
+        self.n_timer.stop()
+        self.vstop()
+        self.send_status()
+        #if (kill) self.close();
+    
+    def closeEvent(self, event):
+        self.clean_up(False)
+        event.accept()
 
 def main():
     """Entry point for our simple vlc player
